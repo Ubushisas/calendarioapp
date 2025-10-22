@@ -2,14 +2,17 @@
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Clock, MapPin, Calendar as CalendarIcon, Globe, Info, Settings } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { ChevronLeft, ChevronRight, ChevronDown, Clock, MapPin, Calendar as CalendarIcon, Globe, Info, Settings } from "lucide-react";
 import "./CalendlyBooking.css";
 
-export default function CalendlyBooking({ onBack }) {
+export default function CalendlyBooking({ onBack, preselectedService }) {
   const [settings, setSettings] = useState(null);
-  const [step, setStep] = useState(1); // 1: Service, 2: Date & Time, 3: Details, 4: Confirmation
+  const [step, setStep] = useState(preselectedService ? 2 : 1); // Skip to step 2 if service is preselected
+  const [dateTimeSubStep, setDateTimeSubStep] = useState('date'); // 'date' or 'time'
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedService, setSelectedService] = useState(null);
+  const [peopleCount, setPeopleCount] = useState(null); // For group packages
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedTime, setSelectedTime] = useState(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -21,6 +24,15 @@ export default function CalendlyBooking({ onBack }) {
     phone: "",
     email: "",
   });
+  const [activeCategory, setActiveCategory] = useState("");
+  const [errorModal, setErrorModal] = useState({ show: false, message: "" });
+
+  // Check if service requires people count selection (group packages, not couples)
+  const requiresPeopleCount = (service) => {
+    if (!service || !service.minPeople) return false;
+    // Only for packages with 4+ people (not couples which are exactly 2)
+    return service.minPeople >= 4 || (service.maxPeople && service.maxPeople > 2 && service.minPeople > 2);
+  };
 
   // Check if form is complete and valid
   const isFormComplete =
@@ -88,6 +100,8 @@ export default function CalendlyBooking({ onBack }) {
 
           // Filter out unavailable slots
           const unavailableSlots = data.unavailableSlots || [];
+          const minimumAdvanceHours = settings.minimumAdvanceBookingHours || 0;
+
           const availableSlots = slots.filter((timeSlot) => {
             const [timeStr, period] = timeSlot.split(" ");
             const [hours, minutes] = timeStr.split(":").map(Number);
@@ -100,6 +114,11 @@ export default function CalendlyBooking({ onBack }) {
 
             // Check if in the past
             if (slotStart <= new Date()) return false;
+
+            // Check minimum advance booking time
+            const now = new Date();
+            const hoursUntilSlot = (slotStart - now) / (1000 * 60 * 60);
+            if (hoursUntilSlot < minimumAdvanceHours) return false;
 
             const slotEnd = new Date(slotStart.getTime() + selectedService.duration * 60000);
 
@@ -191,12 +210,53 @@ export default function CalendlyBooking({ onBack }) {
 
   const handleServiceSelect = (service) => {
     setSelectedService(service);
+    // If service requires people count, show people selector first
+    if (requiresPeopleCount(service)) {
+      setDateTimeSubStep('people');
+      setPeopleCount(null); // Reset count
+    } else {
+      setDateTimeSubStep('date');
+      setPeopleCount(null); // Not needed for this service
+    }
     setStep(2);
   };
+
+  const handlePeopleCountSelect = (count) => {
+    setPeopleCount(count);
+    setDateTimeSubStep('date');
+  };
+
+  // Set first category as active when settings load
+  useEffect(() => {
+    if (settings && categories.length > 0 && !activeCategory) {
+      setActiveCategory(categories[0].id);
+    }
+  }, [settings]);
+
+  // Auto-select service when preselectedService is provided
+  useEffect(() => {
+    if (settings && preselectedService && !selectedService) {
+      // Search for the service across all categories
+      for (const categoryId of Object.keys(settings.services)) {
+        const services = settings.services[categoryId].filter(s => s.enabled);
+        const matchingService = services.find(s =>
+          s.name.toLowerCase() === preselectedService.toLowerCase()
+        );
+
+        if (matchingService) {
+          setSelectedService(matchingService);
+          setSelectedCategory(categoryId);
+          setActiveCategory(categoryId);
+          break;
+        }
+      }
+    }
+  }, [settings, preselectedService]);
 
   const handleDateSelect = (date) => {
     if (isPastDate(date) || !isDateAvailable(date)) return;
     setSelectedDate(date);
+    setDateTimeSubStep('time'); // Move to time selection view
   };
 
   const handleTimeSelect = (time) => {
@@ -206,6 +266,36 @@ export default function CalendlyBooking({ onBack }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Revalidate the selected time before submitting
+    const [timeStr, period] = selectedTime.split(" ");
+    const [hours, minutes] = timeStr.split(":").map(Number);
+    let hours24 = hours;
+    if (period === "PM" && hours !== 12) hours24 = hours + 12;
+    else if (period === "AM" && hours === 12) hours24 = 0;
+
+    const slotStart = new Date(selectedDate);
+    slotStart.setHours(hours24, minutes, 0, 0);
+
+    const now = new Date();
+    const hoursUntilSlot = (slotStart - now) / (1000 * 60 * 60);
+    const minimumAdvanceHours = settings.minimumAdvanceBookingHours || 0;
+
+    if (hoursUntilSlot < minimumAdvanceHours) {
+      setErrorModal({
+        show: true,
+        message: `Este horario ya no está disponible. Debes reservar con al menos ${minimumAdvanceHours} horas de anticipación.`
+      });
+      return;
+    }
+
+    if (slotStart <= now) {
+      setErrorModal({
+        show: true,
+        message: 'Este horario ya no está disponible. Por favor selecciona otro horario.'
+      });
+      return;
+    }
 
     const bookingData = {
       service: selectedService,
@@ -231,11 +321,11 @@ export default function CalendlyBooking({ onBack }) {
       } else {
         const error = await response.json();
         console.error("Booking error:", error);
-        alert(`Error al crear la reserva: ${error.error || 'Error desconocido'}`);
+        setErrorModal({ show: true, message: error.error || 'Error desconocido' });
       }
     } catch (error) {
       console.error("Booking error:", error);
-      alert('Error de conexión al crear la reserva');
+      setErrorModal({ show: true, message: 'Error de conexión al crear la reserva' });
     }
   };
 
@@ -282,7 +372,7 @@ export default function CalendlyBooking({ onBack }) {
                         day: "numeric",
                       })}
                     </div>
-                    <div className="text-sm" style={{color: 'rgb(204, 200, 194)'}}>{selectedTime}</div>
+                    <div className="text-sm" style={{color: 'rgb(102, 102, 102)'}}>{selectedTime}</div>
                   </div>
                 </div>
               )}
@@ -304,41 +394,55 @@ export default function CalendlyBooking({ onBack }) {
                   <ChevronLeft className="w-5 h-5" />
                 </button>
                 <h2 className="calendly-step-title">Selecciona tu experiencia</h2>
-                <div className="calendly-categories">
-                  {categories.map((category) => {
-                    const isRoomEnabled = settings.rooms[category.room]?.enabled;
-                    const services = settings.services?.[category.id]?.filter((s) => s.enabled) || [];
+                <Tabs value={activeCategory} onValueChange={setActiveCategory} className="calendly-tabs">
+                  <TabsList className="calendly-tabs-list">
+                    {categories.map((category) => {
+                      const isRoomEnabled = settings.rooms[category.room]?.enabled;
+                      const services = settings.services?.[category.id]?.filter((s) => s.enabled) || [];
 
-                    if (!isRoomEnabled || services.length === 0) return null;
+                      if (!isRoomEnabled || services.length === 0) return null;
 
-                    return (
-                      <div key={category.id} className="calendly-category-section">
-                        <div className="calendly-category-header">
-                          <h3>{category.name}</h3>
-                        </div>
-                        <div className="calendly-services-list">
-                          {services.map((service) => (
-                            <button
-                              key={service.id}
-                              onClick={() => handleServiceSelect(service)}
-                              className="calendly-service-card"
-                            >
-                              <div className="calendly-service-info">
-                                <h4>{service.name}</h4>
-                                <div className="calendly-service-meta">
-                                  <span>{service.duration} min</span>
-                                  <span>•</span>
-                                  <span>{formatPrice(service.price)}</span>
+                      return (
+                        <TabsTrigger key={category.id} value={category.id} className="calendly-tab-trigger">
+                          {category.name}
+                        </TabsTrigger>
+                      );
+                    })}
+                  </TabsList>
+
+                  <div className="calendly-tabs-content-wrapper">
+                    {categories.map((category) => {
+                      const isRoomEnabled = settings.rooms[category.room]?.enabled;
+                      const services = settings.services?.[category.id]?.filter((s) => s.enabled) || [];
+
+                      if (!isRoomEnabled || services.length === 0) return null;
+
+                      return (
+                        <TabsContent key={category.id} value={category.id} className="calendly-tab-content">
+                          <div className="calendly-services-list">
+                            {services.map((service) => (
+                              <button
+                                key={service.id}
+                                onClick={() => handleServiceSelect(service)}
+                                className="calendly-service-card"
+                              >
+                                <div className="calendly-service-info">
+                                  <h4>{service.name}</h4>
+                                  <div className="calendly-service-meta">
+                                    <span>{service.duration} min</span>
+                                    <span>•</span>
+                                    <span>{formatPrice(service.price)}</span>
+                                  </div>
                                 </div>
-                              </div>
-                              <ChevronRight className="w-5 h-5" style={{color: 'rgb(204, 200, 194)'}} />
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                                <ChevronRight className="w-5 h-5" style={{color: 'rgb(136, 136, 136)'}} />
+                              </button>
+                            ))}
+                          </div>
+                        </TabsContent>
+                      );
+                    })}
+                  </div>
+                </Tabs>
               </div>
             )}
 
@@ -350,107 +454,159 @@ export default function CalendlyBooking({ onBack }) {
                     setStep(1);
                     setSelectedDate(null);
                     setSelectedTime(null);
+                    setPeopleCount(null);
+                    setDateTimeSubStep('date');
                   }}
                   className="calendly-back-btn"
                   title="Volver a selección de servicio"
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </button>
-                <h2 className="calendly-step-title">Selecciona fecha y hora</h2>
+                <h2 className="calendly-step-title">
+                  {dateTimeSubStep === 'people'
+                    ? '¿Cuántas personas asistirán?'
+                    : dateTimeSubStep === 'date'
+                    ? 'Selecciona una fecha'
+                    : 'Selecciona una hora'}
+                </h2>
 
-                {/* Unified Calendly-style container */}
-                <div className="calendly-unified-picker">
-                  {/* Calendar section */}
-                  <div className="calendly-unified-calendar">
-                    <div className="calendly-calendar-header">
-                      <button
-                        onClick={() =>
-                          setCurrentMonth(
-                            new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1)
-                          )
-                        }
-                      >
-                        <ChevronLeft className="w-5 h-5" />
-                      </button>
-                      <h3>
-                        {currentMonth.toLocaleDateString("es-CO", {
-                          month: "long",
-                          year: "numeric",
-                        })}
-                      </h3>
-                      <button
-                        onClick={() =>
-                          setCurrentMonth(
-                            new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1)
-                          )
-                        }
-                      >
-                        <ChevronRight className="w-5 h-5" />
-                      </button>
-                    </div>
-
-                    <div className="calendly-calendar-grid">
-                      <div className="calendly-weekdays">
-                        {["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"].map((day) => (
-                          <div key={day} className="calendly-weekday">
-                            {day}
-                          </div>
+                {/* People count selection view */}
+                {dateTimeSubStep === 'people' && selectedService && (
+                  <div className="calendly-unified-picker">
+                    <div className="calendly-people-selector">
+                      <p className="calendly-people-description">
+                        Selecciona el número de personas que participarán en {selectedService.name}
+                      </p>
+                      <div className="calendly-people-grid">
+                        {Array.from(
+                          { length: (selectedService.maxPeople || 6) - (selectedService.minPeople || 4) + 1 },
+                          (_, i) => (selectedService.minPeople || 4) + i
+                        ).map((count) => (
+                          <button
+                            key={count}
+                            onClick={() => handlePeopleCountSelect(count)}
+                            className="calendly-people-option"
+                          >
+                            <span className="calendly-people-count">{count}</span>
+                            <span className="calendly-people-label">
+                              {count === 1 ? 'persona' : 'personas'}
+                            </span>
+                          </button>
                         ))}
                       </div>
-                      <div className="calendly-days">
-                        {getDaysInMonth(currentMonth).map((date, index) => {
-                          if (!date) {
-                            return <div key={index} className="calendly-day empty"></div>;
-                          }
-
-                          const isToday =
-                            date.toDateString() === new Date().toDateString();
-                          const isSelected =
-                            selectedDate &&
-                            date.toDateString() === selectedDate.toDateString();
-                          const isPast = isPastDate(date);
-                          const isAvailable = isDateAvailable(date);
-
-                          if (isPast || !isAvailable) {
-                            return (
-                              <div key={index} className="calendly-day unavailable">
-                                {date.getDate()}
-                              </div>
-                            );
-                          }
-
-                          return (
-                            <button
-                              key={index}
-                              onClick={() => handleDateSelect(date)}
-                              className={`calendly-day ${isToday ? "today" : ""} ${
-                                isSelected ? "selected" : ""
-                              }`}
-                            >
-                              {date.getDate()}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Timezone display */}
-                    <div className="calendly-timezone">
-                      <Globe className="w-4 h-4" />
-                      <span>Ibagué, Colombia (UTC-5)</span>
                     </div>
                   </div>
+                )}
 
-                  {/* Time slots section */}
-                  {selectedDate && (
-                    <div className="calendly-unified-times">
-                      <h3 className="calendly-times-title">
-                        {selectedDate.toLocaleDateString("es-CO", {
-                          weekday: "long",
-                          day: "numeric",
-                          month: "long",
-                        })}
-                      </h3>
+                {/* Date selection view */}
+                {dateTimeSubStep === 'date' && (
+                  <div className="calendly-unified-picker">
+                    <div className="calendly-unified-calendar">
+                      <div className="calendly-calendar-header">
+                        <button
+                          onClick={() =>
+                            setCurrentMonth(
+                              new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1)
+                            )
+                          }
+                        >
+                          <ChevronLeft className="w-5 h-5" />
+                        </button>
+                        <h3>
+                          {currentMonth.toLocaleDateString("es-CO", {
+                            month: "long",
+                            year: "numeric",
+                          })}
+                        </h3>
+                        <button
+                          onClick={() =>
+                            setCurrentMonth(
+                              new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1)
+                            )
+                          }
+                        >
+                          <ChevronRight className="w-5 h-5" />
+                        </button>
+                      </div>
+
+                      <div className="calendly-calendar-grid">
+                        <div className="calendly-weekdays">
+                          {["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"].map((day) => (
+                            <div key={day} className="calendly-weekday">
+                              {day}
+                            </div>
+                          ))}
+                        </div>
+                        <div className="calendly-days">
+                          {getDaysInMonth(currentMonth).map((date, index) => {
+                            if (!date) {
+                              return <div key={index} className="calendly-day empty"></div>;
+                            }
+
+                            const isToday =
+                              date.toDateString() === new Date().toDateString();
+                            const isSelected =
+                              selectedDate &&
+                              date.toDateString() === selectedDate.toDateString();
+                            const isPast = isPastDate(date);
+                            const isAvailable = isDateAvailable(date);
+
+                            if (isPast || !isAvailable) {
+                              return (
+                                <div key={index} className="calendly-day unavailable">
+                                  {date.getDate()}
+                                </div>
+                              );
+                            }
+
+                            return (
+                              <button
+                                key={index}
+                                onClick={() => handleDateSelect(date)}
+                                className={`calendly-day ${isToday ? "today" : ""} ${
+                                  isSelected ? "selected" : ""
+                                }`}
+                              >
+                                {date.getDate()}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Timezone display */}
+                      <div className="calendly-timezone">
+                        <Globe className="w-4 h-4" />
+                        <span>Ibagué, Colombia (UTC-5)</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Time selection view */}
+                {dateTimeSubStep === 'time' && selectedDate && (
+                  <div className="calendly-unified-picker">
+                    <div className="calendly-unified-times" style={{ width: '100%' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1rem' }}>
+                        <button
+                          onClick={() => {
+                            setDateTimeSubStep('date');
+                            setSelectedTime(null);
+                          }}
+                          className="calendly-back-btn"
+                          style={{ marginRight: '0.5rem' }}
+                          title="Volver a selección de fecha"
+                        >
+                          <ChevronLeft className="w-5 h-5" />
+                        </button>
+                        <h3 className="calendly-times-title" style={{ margin: 0 }}>
+                          {selectedDate.toLocaleDateString("es-CO", {
+                            weekday: "long",
+                            day: "numeric",
+                            month: "long",
+                          })}
+                        </h3>
+                      </div>
                       {loadingTimes ? (
                         <div className="calendly-loading-times">
                           <div className="calendly-spinner-small"></div>
@@ -478,8 +634,8 @@ export default function CalendlyBooking({ onBack }) {
                         </p>
                       )}
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 {/* Footer with Cookie settings and Troubleshoot */}
                 <div className="calendly-footer">
@@ -502,6 +658,7 @@ export default function CalendlyBooking({ onBack }) {
                   onClick={() => {
                     setStep(2);
                     setSelectedTime(null);
+                    setDateTimeSubStep('time'); // Go back to time selection
                   }}
                   className="calendly-back-btn"
                   title="Volver a selección de fecha y hora"
@@ -581,7 +738,7 @@ export default function CalendlyBooking({ onBack }) {
                       day: "numeric",
                     })}
                   </p>
-                  <p style={{color: 'rgb(242, 237, 230)', fontWeight: 600}}>{selectedTime}</p>
+                  <p style={{color: 'rgb(17, 17, 17)', fontWeight: 600}}>{selectedTime}</p>
                 </div>
                 <Button onClick={() => window.location.reload()} variant="outline">
                   Hacer otra reserva
@@ -591,6 +748,27 @@ export default function CalendlyBooking({ onBack }) {
           </Card>
         </div>
       </div>
+
+      {/* Error Modal */}
+      {errorModal.show && (
+        <div className="calendly-modal-overlay" onClick={() => setErrorModal({ show: false, message: "" })}>
+          <div className="calendly-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="calendly-modal-icon-error">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+              </svg>
+            </div>
+            <h3 className="calendly-modal-title">Error al crear la reserva</h3>
+            <p className="calendly-modal-message">{errorModal.message}</p>
+            <Button
+              onClick={() => setErrorModal({ show: false, message: "" })}
+              className="calendly-modal-button"
+            >
+              Entendido
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

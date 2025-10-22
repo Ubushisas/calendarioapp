@@ -1,14 +1,19 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import BookingFlow from "@/components/BookingFlow/BookingFlow";
 import CalendlyBooking from "@/components/CalendlyBooking/CalendlyBooking";
 import Copy from "@/components/Copy/Copy";
 import AnimatedButton from "@/components/AnimatedButton/AnimatedButton";
 import "./page.css";
 
-export default function Home() {
-  const [showBooking, setShowBooking] = useState(false);
+function HomeContent() {
+  const searchParams = useSearchParams();
+  const serviceParam = searchParams.get('service');
+
+  const [showBooking, setShowBooking] = useState(!!serviceParam);
   const [calendarStatus, setCalendarStatus] = useState({ enabled: true, message: null });
+  const [preselectedService, setPreselectedService] = useState(serviceParam || null);
 
   useEffect(() => {
     // Check calendar status on load
@@ -64,11 +69,19 @@ export default function Home() {
                 </p>
               </div>
             ) : (
-              <CalendlyBooking onBack={() => setShowBooking(false)} />
+              <CalendlyBooking onBack={() => setShowBooking(false)} preselectedService={preselectedService} />
             )}
           </div>
         </section>
       )}
     </main>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<div className="spa-booking-page" style={{minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>Cargando...</div>}>
+      <HomeContent />
+    </Suspense>
   );
 }

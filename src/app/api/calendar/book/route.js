@@ -14,8 +14,17 @@ export async function POST(request) {
       );
     }
 
-    // Convert date string to Date object
+    // Convert date string to Date object and incorporate the time
     const dateObj = new Date(date);
+
+    // Parse the time string (e.g., "2:00 PM") and set it on the date
+    const [timeStr, period] = time.split(' ');
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    let hours24 = hours;
+    if (period === 'PM' && hours !== 12) hours24 = hours + 12;
+    else if (period === 'AM' && hours === 12) hours24 = 0;
+
+    dateObj.setHours(hours24, minutes, 0, 0);
 
     // Check if booking is allowed based on settings
     const bookingCheck = isBookingAllowed(dateObj, service);

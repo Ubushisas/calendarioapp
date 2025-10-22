@@ -1,5 +1,7 @@
 @import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
 
 @theme {
   /* Clean monochromatic black and white palette */
@@ -53,12 +55,18 @@
   scroll-behavior: smooth;
 }
 
+html,
 body {
-  background: hsl(0 0% 100%);
-  color: var(--color-foreground);
-  font-family: var(--font-sans);
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100vh;
+  background: #ECEEDF;
+  color: #4A3C32;
+  font-family: 'Montserrat', var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 
 /* Smooth transitions for interactive elements */
@@ -96,4 +104,19 @@ textarea {
 
 .animate-fade-in-up {
   animation: fadeInUp 0.8s ease-out forwards;
+}
+
+/* Hide Next.js Dev Tools */
+button[aria-label="Open Next.js Dev Tools"],
+button[aria-label*="Next.js"],
+button[aria-label*="devtools" i],
+#__next-devtools,
+body > button[style*="position: fixed"],
+body > button[style*="bottom"],
+body > button[style*="left"] {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+  z-index: -9999 !important;
 }

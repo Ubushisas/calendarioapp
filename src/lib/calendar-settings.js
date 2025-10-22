@@ -29,6 +29,7 @@ const DEFAULT_SETTINGS = {
   },
   blockedDates: [], // Array of ISO date strings
   bufferTime: 15, // Minutes between appointments
+  minimumAdvanceBookingHours: 12, // Minimum hours in advance required to book
 };
 
 // Initialize settings file if it doesn't exist
@@ -87,6 +88,19 @@ export function isBookingAllowed(date, service) {
   // Check if calendar is globally enabled
   if (!settings.calendarEnabled) {
     return { allowed: false, reason: 'El calendario está deshabilitado temporalmente' };
+  }
+
+  // Check minimum advance booking time
+  const bookingDate = new Date(date);
+  const now = new Date();
+  const hoursUntilBooking = (bookingDate - now) / (1000 * 60 * 60);
+  const minimumHours = settings.minimumAdvanceBookingHours || 0;
+
+  if (hoursUntilBooking < minimumHours) {
+    return {
+      allowed: false,
+      reason: `Debes reservar con al menos ${minimumHours} horas de anticipación`
+    };
   }
 
   // Check if date is blocked

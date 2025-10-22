@@ -20,6 +20,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@gsap/react": "^2.1.1",
     "@radix-ui/react-slot": "^1.2.3",
+    "@radix-ui/react-tabs": "^1.1.13",
     "@tabler/icons-react": "^3.35.0",
     "@whiskeysockets/baileys": "^6.7.20",
     "class-variance-authority": "^0.7.1",

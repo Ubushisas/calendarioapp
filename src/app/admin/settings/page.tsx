@@ -22,7 +22,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 
 // Sortable Service Item Component
-function SortableServiceItem({ service, idx, category, services, updateSetting }: any) {
+function SortableServiceItem({ service, idx, category, services, updateSetting, onDelete, onDuplicate, onEdit, openMenu, setOpenMenu }: any) {
   const {
     attributes,
     listeners,
@@ -70,6 +70,39 @@ function SortableServiceItem({ service, idx, category, services, updateSetting }
         />
         <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-black"></div>
       </label>
+      <div className="relative">
+        <button
+          onClick={() => setOpenMenu(openMenu === service.id ? null : service.id)}
+          className="p-2 hover:bg-gray-200 rounded-lg transition"
+        >
+          <MoreVertical className="w-5 h-5 text-gray-600" />
+        </button>
+        {openMenu === service.id && (
+          <div className="absolute right-0 mt-1 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
+            <button
+              onClick={() => onEdit(service.id)}
+              className="w-full flex items-center gap-2 px-4 py-2 hover:bg-gray-50 transition text-left"
+            >
+              <Edit className="w-4 h-4" />
+              <span className="text-sm">Editar</span>
+            </button>
+            <button
+              onClick={() => onDuplicate(service.id)}
+              className="w-full flex items-center gap-2 px-4 py-2 hover:bg-gray-50 transition text-left"
+            >
+              <Copy className="w-4 h-4" />
+              <span className="text-sm">Duplicar</span>
+            </button>
+            <button
+              onClick={() => onDelete(service.id)}
+              className="w-full flex items-center gap-2 px-4 py-2 hover:bg-red-50 text-red-600 transition text-left"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span className="text-sm">Eliminar</span>
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -173,12 +206,15 @@ export default function SettingsPage() {
     eventos: false,
   })
   const [openMenuCategory, setOpenMenuCategory] = useState<string | null>(null)
+  const [openMenuService, setOpenMenuService] = useState<string | null>(null)
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false)
   const [showRenameCategoryModal, setShowRenameCategoryModal] = useState(false)
   const [showDuplicateCategoryModal, setShowDuplicateCategoryModal] = useState(false)
   const [showAddServiceModal, setShowAddServiceModal] = useState(false)
+  const [showEditServiceModal, setShowEditServiceModal] = useState(false)
   const [modalCategoryName, setModalCategoryName] = useState('')
   const [modalCategoryId, setModalCategoryId] = useState('')
+  const [editingServiceId, setEditingServiceId] = useState('')
   const [newService, setNewService] = useState({
     name: '',
     duration: 60,
@@ -446,6 +482,90 @@ export default function SettingsPage() {
     setModalCategoryId('')
   }
 
+  const deleteService = (category: string, serviceId: string) => {
+    if (!confirm('¿Estás seguro de eliminar este servicio?')) return
+
+    setSettings((prev: any) => {
+      const categoryServices = prev.services[category].filter((s: any) => s.id !== serviceId)
+      return {
+        ...prev,
+        services: {
+          ...prev.services,
+          [category]: categoryServices
+        }
+      }
+    })
+    setOpenMenuService(null)
+  }
+
+  const duplicateService = (category: string, serviceId: string) => {
+    setSettings((prev: any) => {
+      const service = prev.services[category].find((s: any) => s.id === serviceId)
+      if (!service) return prev
+
+      const duplicatedService = {
+        ...service,
+        id: `${service.id}_copy_${Date.now()}`,
+        name: `${service.name} (copia)`
+      }
+
+      return {
+        ...prev,
+        services: {
+          ...prev.services,
+          [category]: [...prev.services[category], duplicatedService]
+        }
+      }
+    })
+    setOpenMenuService(null)
+  }
+
+  const editService = (category: string, serviceId: string) => {
+    const service = settings.services[category].find((s: any) => s.id === serviceId)
+    if (!service) return
+
+    setModalCategoryId(category)
+    setEditingServiceId(serviceId)
+    setNewService({
+      name: service.name,
+      duration: service.duration,
+      price: service.price
+    })
+    setShowEditServiceModal(true)
+    setOpenMenuService(null)
+  }
+
+  const confirmEditService = () => {
+    if (!newService.name || newService.name.trim() === '') return
+
+    setSettings((prev: any) => {
+      const categoryServices = prev.services[modalCategoryId].map((s: any) => {
+        if (s.id === editingServiceId) {
+          return {
+            ...s,
+            name: newService.name,
+            duration: newService.duration,
+            price: newService.price
+          }
+        }
+        return s
+      })
+
+      return {
+        ...prev,
+        services: {
+          ...prev.services,
+          [modalCategoryId]: categoryServices
+        }
+      }
+    })
+
+    setShowEditServiceModal(false)
+    setNewService({ name: '', duration: 60, price: 100000 })
+    setModalCategoryId('')
+    setEditingServiceId('')
+  }
+
   // Room management functions
   const addRoom = () => {
     setModalRoomName('')
@@ -694,10 +814,10 @@ export default function SettingsPage() {
                 <h2 className="text-base sm:text-lg font-semibold text-gray-900">Control de Salas</h2>
                 <button
                   onClick={addRoom}
-                  className="flex items-center gap-2 px-3 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition text-sm"
+                  className="w-10 h-10 flex items-center justify-center bg-black text-white rounded-lg hover:bg-gray-800 transition"
+                  title="Agregar sala"
                 >
-                  <Plus className="w-4 h-4" />
-                  <span>Agregar Sala</span>
+                  <Plus className="w-5 h-5" />
                 </button>
               </div>
               <p className="text-sm text-gray-500 mb-3">Arrastra para reorganizar las salas</p>
@@ -798,7 +918,16 @@ export default function SettingsPage() {
 
                   {expandedCategories[category] && (
                     <div className="p-4 space-y-2 bg-white">
-                      <p className="text-sm text-gray-500 mb-3">Arrastra para reorganizar los servicios</p>
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-sm text-gray-500">Arrastra para reorganizar los servicios</p>
+                        <button
+                          onClick={() => addService(category)}
+                          className="w-8 h-8 flex items-center justify-center bg-black text-white rounded-lg hover:bg-gray-800 transition"
+                          title="Agregar servicio"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      </div>
                       <DndContext
                         sensors={sensors}
                         collisionDetection={closestCenter}
@@ -816,6 +945,11 @@ export default function SettingsPage() {
                               category={category}
                               services={services}
                               updateSetting={updateSetting}
+                              onDelete={(serviceId: string) => deleteService(category, serviceId)}
+                              onDuplicate={(serviceId: string) => duplicateService(category, serviceId)}
+                              onEdit={(serviceId: string) => editService(category, serviceId)}
+                              openMenu={openMenuService}
+                              setOpenMenu={setOpenMenuService}
                             />
                           ))}
                         </SortableContext>
@@ -844,6 +978,28 @@ export default function SettingsPage() {
                 </span>
               </div>
               <p className="text-sm text-gray-500 mt-2">Tiempo de preparación entre cada cita</p>
+            </div>
+
+            {/* Minimum Advance Booking Time */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+              <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Tiempo Mínimo de Anticipación</h2>
+              <div className="flex items-center gap-4">
+                <input
+                  type="range"
+                  value={settings.minimumAdvanceBookingHours || 0}
+                  onChange={(e) => updateSetting('minimumAdvanceBookingHours', parseInt(e.target.value))}
+                  min="0"
+                  max="72"
+                  step="1"
+                  className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
+                />
+                <span className="text-2xl font-bold text-black min-w-[100px]">
+                  {settings.minimumAdvanceBookingHours || 0} hrs
+                </span>
+              </div>
+              <p className="text-sm text-gray-500 mt-2">
+                Horas mínimas de anticipación para hacer una reserva (0 = sin restricción)
+              </p>
             </div>
           </div>
 
@@ -1036,6 +1192,70 @@ export default function SettingsPage() {
                 className="flex-1 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition font-medium"
               >
                 Agregar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Service Modal */}
+      {showEditServiceModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Editar Servicio</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nombre del servicio</label>
+                <input
+                  type="text"
+                  value={newService.name}
+                  onChange={(e) => setNewService({ ...newService, name: e.target.value })}
+                  placeholder="Ej: Masaje Relajante"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Duración (minutos)</label>
+                <input
+                  type="number"
+                  value={newService.duration}
+                  onChange={(e) => setNewService({ ...newService, duration: parseInt(e.target.value) || 0 })}
+                  min="15"
+                  step="15"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Precio (COP)</label>
+                <input
+                  type="number"
+                  value={newService.price}
+                  onChange={(e) => setNewService({ ...newService, price: parseInt(e.target.value) || 0 })}
+                  min="0"
+                  step="10000"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
+                />
+                <p className="text-xs text-gray-500 mt-1">${(newService.price / 1000).toFixed(0)}k COP</p>
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowEditServiceModal(false)
+                  setNewService({ name: '', duration: 60, price: 100000 })
+                  setModalCategoryId('')
+                  setEditingServiceId('')
+                }}
+                className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition font-medium"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmEditService}
+                className="flex-1 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition font-medium"
+              >
+                Guardar
               </button>
             </div>
           </div>
