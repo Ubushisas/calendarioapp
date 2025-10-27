@@ -3,16 +3,17 @@ import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { ChevronLeft, ChevronRight, ChevronDown, Clock, MapPin, Calendar as CalendarIcon, Globe, Info, Settings } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown, Clock, MapPin, Calendar as CalendarIcon, Globe } from "lucide-react";
 import "./CalendlyBooking.css";
 
 export default function CalendlyBooking({ onBack, preselectedService }) {
   const [settings, setSettings] = useState(null);
   const [step, setStep] = useState(preselectedService ? 2 : 1); // Skip to step 2 if service is preselected
-  const [dateTimeSubStep, setDateTimeSubStep] = useState('date'); // 'date' or 'time'
+  const [dateTimeSubStep, setDateTimeSubStep] = useState('date'); // 'date', 'time', 'people', or 'guests'
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedService, setSelectedService] = useState(null);
   const [peopleCount, setPeopleCount] = useState(null); // For group packages
+  const [guestNames, setGuestNames] = useState([]); // Names of all guests
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedTime, setSelectedTime] = useState(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -26,12 +27,14 @@ export default function CalendlyBooking({ onBack, preselectedService }) {
   });
   const [activeCategory, setActiveCategory] = useState("");
   const [errorModal, setErrorModal] = useState({ show: false, message: "" });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Check if service requires people count selection (group packages, not couples)
+  // Check if service requires people count selection (group packages only, excluding couples and fixed-count services)
   const requiresPeopleCount = (service) => {
     if (!service || !service.minPeople) return false;
-    // Only for packages with 4+ people (not couples which are exactly 2)
-    return service.minPeople >= 4 || (service.maxPeople && service.maxPeople > 2 && service.minPeople > 2);
+    // Only show person count for services with 3+ people OR services with flexible count (min != max)
+    // This excludes couples (2 people fixed) and includes group packages like amigas, familia, eventos
+    return service.minPeople >= 3 || (service.minPeople !== service.maxPeople && service.minPeople >= 2);
   };
 
   // Check if form is complete and valid
@@ -44,7 +47,7 @@ export default function CalendlyBooking({ onBack, preselectedService }) {
 
   // Load settings
   useEffect(() => {
-    fetch("/api/admin/settings")
+    fetch("/api/settings")
       .then((res) => res.json())
       .then((data) => setSettings(data))
       .catch((err) => console.error("Error loading settings:", err));
@@ -223,7 +226,13 @@ export default function CalendlyBooking({ onBack, preselectedService }) {
 
   const handlePeopleCountSelect = (count) => {
     setPeopleCount(count);
+    // Skip guest names and go directly to date selection
     setDateTimeSubStep('date');
+  };
+
+  // Handle guest names completion
+  const handleGuestNamesComplete = () => {
+    setStep(3); // Go to contact details form
   };
 
   // Set first category as active when settings load
@@ -247,6 +256,10 @@ export default function CalendlyBooking({ onBack, preselectedService }) {
           setSelectedService(matchingService);
           setSelectedCategory(categoryId);
           setActiveCategory(categoryId);
+
+          // Always start with date selection
+          setDateTimeSubStep('date');
+
           break;
         }
       }
@@ -261,11 +274,17 @@ export default function CalendlyBooking({ onBack, preselectedService }) {
 
   const handleTimeSelect = (time) => {
     setSelectedTime(time);
-    setStep(3);
+    // If service requires people count, go to people selection, otherwise go to details
+    if (selectedService && requiresPeopleCount(selectedService)) {
+      setDateTimeSubStep('people');
+    } else {
+      setStep(3);
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true);
 
     // Revalidate the selected time before submitting
     const [timeStr, period] = selectedTime.split(" ");
@@ -286,6 +305,7 @@ export default function CalendlyBooking({ onBack, preselectedService }) {
         show: true,
         message: `Este horario ya no está disponible. Debes reservar con al menos ${minimumAdvanceHours} horas de anticipación.`
       });
+      setIsSubmitting(false);
       return;
     }
 
@@ -294,6 +314,7 @@ export default function CalendlyBooking({ onBack, preselectedService }) {
         show: true,
         message: 'Este horario ya no está disponible. Por favor selecciona otro horario.'
       });
+      setIsSubmitting(false);
       return;
     }
 
@@ -306,7 +327,8 @@ export default function CalendlyBooking({ onBack, preselectedService }) {
         email: formData.email,
         phone: formData.phone,
       },
-      guestNames: [],
+      guestNames: guestNames.filter(name => name.trim()),
+      peopleCount: peopleCount,
     };
 
     try {
@@ -326,6 +348,8 @@ export default function CalendlyBooking({ onBack, preselectedService }) {
     } catch (error) {
       console.error("Booking error:", error);
       setErrorModal({ show: true, message: 'Error de conexión al crear la reserva' });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -386,13 +410,15 @@ export default function CalendlyBooking({ onBack, preselectedService }) {
             {/* Step 1: Select Service */}
             {step === 1 && (
               <div className="calendly-step">
-                <button
-                  onClick={onBack}
-                  className="calendly-back-btn"
-                  title="Volver al inicio"
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
+                {!preselectedService && (
+                  <button
+                    onClick={onBack}
+                    className="calendly-back-btn"
+                    title="Volver al inicio"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                )}
                 <h2 className="calendly-step-title">Selecciona tu experiencia</h2>
                 <Tabs value={activeCategory} onValueChange={setActiveCategory} className="calendly-tabs">
                   <TabsList className="calendly-tabs-list">
@@ -449,22 +475,39 @@ export default function CalendlyBooking({ onBack, preselectedService }) {
             {/* Step 2: Select Date & Time */}
             {step === 2 && (
               <div className="calendly-step">
-                <button
-                  onClick={() => {
-                    setStep(1);
-                    setSelectedDate(null);
-                    setSelectedTime(null);
-                    setPeopleCount(null);
-                    setDateTimeSubStep('date');
-                  }}
-                  className="calendly-back-btn"
-                  title="Volver a selección de servicio"
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
+                {/* Back button logic based on current substep */}
+                {dateTimeSubStep === 'time' && (
+                  <button
+                    onClick={() => setDateTimeSubStep('date')}
+                    className="calendly-back-btn"
+                    title="Volver a selección de fecha"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                )}
+                {dateTimeSubStep === 'people' && (
+                  <button
+                    onClick={() => setDateTimeSubStep('time')}
+                    className="calendly-back-btn"
+                    title="Volver a selección de hora"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                )}
+                {dateTimeSubStep === 'guests' && (
+                  <button
+                    onClick={() => setDateTimeSubStep('people')}
+                    className="calendly-back-btn"
+                    title="Volver a selección de personas"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                )}
                 <h2 className="calendly-step-title">
                   {dateTimeSubStep === 'people'
                     ? '¿Cuántas personas asistirán?'
+                    : dateTimeSubStep === 'guests'
+                    ? 'Nombres de los invitados'
                     : dateTimeSubStep === 'date'
                     ? 'Selecciona una fecha'
                     : 'Selecciona una hora'}
@@ -474,13 +517,10 @@ export default function CalendlyBooking({ onBack, preselectedService }) {
                 {dateTimeSubStep === 'people' && selectedService && (
                   <div className="calendly-unified-picker">
                     <div className="calendly-people-selector">
-                      <p className="calendly-people-description">
-                        Selecciona el número de personas que participarán en {selectedService.name}
-                      </p>
                       <div className="calendly-people-grid">
                         {Array.from(
-                          { length: (selectedService.maxPeople || 6) - (selectedService.minPeople || 4) + 1 },
-                          (_, i) => (selectedService.minPeople || 4) + i
+                          { length: (selectedService.maxPeople || 6) - (selectedService.minPeople || 2) + 1 },
+                          (_, i) => (selectedService.minPeople || 2) + i
                         ).map((count) => (
                           <button
                             key={count}
@@ -488,12 +528,48 @@ export default function CalendlyBooking({ onBack, preselectedService }) {
                             className="calendly-people-option"
                           >
                             <span className="calendly-people-count">{count}</span>
-                            <span className="calendly-people-label">
-                              {count === 1 ? 'persona' : 'personas'}
-                            </span>
                           </button>
                         ))}
                       </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Guest names collection view */}
+                {dateTimeSubStep === 'guests' && selectedService && (
+                  <div className="calendly-unified-picker">
+                    <div className="calendly-guests-form">
+                      <p className="calendly-guests-description">
+                        Por favor ingresa el nombre completo de cada persona que asistirá a {selectedService.name}
+                      </p>
+                      <div className="calendly-guests-grid">
+                        {guestNames.map((name, index) => (
+                          <div key={index} className="calendly-guest-input-group">
+                            <label htmlFor={`guest-${index}`}>
+                              Persona {index + 1}
+                            </label>
+                            <input
+                              type="text"
+                              id={`guest-${index}`}
+                              value={name}
+                              onChange={(e) => {
+                                const newNames = [...guestNames];
+                                newNames[index] = e.target.value;
+                                setGuestNames(newNames);
+                              }}
+                              placeholder="Nombre completo"
+                              className="calendly-guest-input"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                      <button
+                        onClick={handleGuestNamesComplete}
+                        disabled={guestNames.some(name => !name.trim())}
+                        className="calendly-guests-continue-btn"
+                      >
+                        Continuar
+                      </button>
                     </div>
                   </div>
                 )}
@@ -637,17 +713,6 @@ export default function CalendlyBooking({ onBack, preselectedService }) {
                   </div>
                 )}
 
-                {/* Footer with Cookie settings and Troubleshoot */}
-                <div className="calendly-footer">
-                  <button className="calendly-footer-link">
-                    <Settings className="w-4 h-4" />
-                    <span>Cookie settings</span>
-                  </button>
-                  <button className="calendly-footer-link">
-                    <Info className="w-4 h-4" />
-                    <span>Troubleshoot</span>
-                  </button>
-                </div>
               </div>
             )}
 
@@ -657,11 +722,16 @@ export default function CalendlyBooking({ onBack, preselectedService }) {
                 <button
                   onClick={() => {
                     setStep(2);
-                    setSelectedTime(null);
-                    setDateTimeSubStep('time'); // Go back to time selection
+                    // Go back to guest names if service requires people count, otherwise to time selection
+                    if (selectedService && requiresPeopleCount(selectedService)) {
+                      setDateTimeSubStep('guests');
+                    } else {
+                      setDateTimeSubStep('time');
+                      setSelectedTime(null);
+                    }
                   }}
                   className="calendly-back-btn"
-                  title="Volver a selección de fecha y hora"
+                  title="Volver"
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </button>
@@ -706,10 +776,17 @@ export default function CalendlyBooking({ onBack, preselectedService }) {
 
                   <Button
                     type="submit"
-                    className={`calendly-submit-btn ${isFormComplete ? 'calendly-submit-btn-active' : ''}`}
-                    disabled={!isFormComplete}
+                    className={`calendly-submit-btn ${isFormComplete && !isSubmitting ? 'calendly-submit-btn-active' : ''}`}
+                    disabled={!isFormComplete || isSubmitting}
                   >
-                    Confirmar reserva
+                    {isSubmitting ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <div className="calendly-spinner" style={{ width: '20px', height: '20px', borderWidth: '3px' }}></div>
+                        <span>Confirmando reserva...</span>
+                      </div>
+                    ) : (
+                      'Confirmar reserva'
+                    )}
                   </Button>
                 </form>
               </div>

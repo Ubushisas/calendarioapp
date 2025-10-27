@@ -13,7 +13,7 @@ const Calendar = ({ service, onSelectDateTime }) => {
 
   useEffect(() => {
     // Load settings
-    fetch('/api/admin/settings')
+    fetch('/api/settings')
       .then(res => res.json())
       .then(data => setSettings(data))
       .catch(err => console.error('Error loading settings:', err));

@@ -158,12 +158,18 @@ export async function createBooking(date, time, service, guestNames, customerInf
     const startDateTime = convertToISODateTime(date, time);
     const endDateTime = new Date(new Date(startDateTime).getTime() + service.duration * 60000).toISOString();
 
+    // Format service details
+    const durationText = `Duración: ${service.duration} minutos`;
+    const priceText = service.price ? `Precio: $${service.price.toLocaleString('es-CO')} COP` : '';
+
     // Format guest names for description
-    const guestsText = guestNames.length > 0 ? `\n\nAsistentes:\n${guestNames.join('\n')}` : '';
+    const peopleCount = guestNames.length > 0 ? guestNames.length : (service.minPeople || 1);
+    const peopleText = peopleCount > 1 ? `\nNúmero de personas: ${peopleCount}` : '';
+    const guestsText = guestNames.length > 0 ? `\n\nNombres de los asistentes:\n${guestNames.map((name, i) => `${i + 1}. ${name}`).join('\n')}` : '';
 
     const event = {
       summary: `${service.name}`,
-      description: `Reserva de ${service.name}${guestsText}\n\nContacto:\nNombre: ${customerInfo.name}\nTeléfono: ${customerInfo.phone}\nEmail: ${customerInfo.email}`,
+      description: `✨ RESERVA DE ${service.name.toUpperCase()} ✨\n\n📋 Detalles del Servicio:\n${durationText}\n${priceText}${peopleText}${guestsText}\n\n👤 Información de Contacto:\nNombre: ${customerInfo.name}\nTeléfono: ${customerInfo.phone}\nEmail: ${customerInfo.email}\n\n🏨 Miosotys Spa - Colombia`,
       start: {
         dateTime: startDateTime,
         timeZone: 'America/Bogota',
