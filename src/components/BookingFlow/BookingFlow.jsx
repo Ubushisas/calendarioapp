@@ -51,8 +51,8 @@ const BookingFlow = () => {
 
   const handlePeopleSelect = (num) => {
     setNumPeople(num);
-    setGuestNames(Array(num).fill("")); // All people including main person
-    setStep(3.5); // Guest names step
+    setGuestNames([]); // No need to collect guest names
+    setStep(4); // Go directly to calendar
   };
 
   const handleGuestNameChange = (index, value) => {
@@ -438,7 +438,7 @@ const BookingFlow = () => {
             </>
           )}
 
-          <button className="back-button" onClick={() => setStep(service.minPeople ? 3.5 : 2)}>
+          <button className="back-button" onClick={() => setStep(service.minPeople ? 3 : 2)}>
             ← Volver
           </button>
         </div>
