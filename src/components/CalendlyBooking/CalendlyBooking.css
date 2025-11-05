@@ -9,11 +9,12 @@
   position: relative;
   overflow: visible;
   font-family: 'Montserrat', sans-serif;
-  font-size: 60%;
+  font-size: 200% !important;
 }
 
 .calendly-container * {
   font-family: 'Montserrat', sans-serif;
+  font-size: 200% !important;
 }
 
 .calendly-container::before {
