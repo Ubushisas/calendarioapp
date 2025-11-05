@@ -33,7 +33,7 @@ const pacientesDB: Record<string, any> = {
 
 // Recomendaciones AI
 function obtenerRecomendacionesAI(estado: string, visitas: number, score: number) {
-  const recs = []
+  const recs: Array<{ titulo: string; desc: string }> = []
 
   if (estado === 'vip') {
     recs.push({ titulo: "Programa VIP Exclusivo", desc: "Cliente VIP premium. Ofrecer acceso prioritario, terapeuta dedicado y servicios personalizados." })

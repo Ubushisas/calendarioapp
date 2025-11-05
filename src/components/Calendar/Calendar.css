@@ -90,7 +90,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 1.5rem;
+  position: absolute;
+  top: 0;
+  left: 0; /* Align arrow to the left */
 }
 
 .back-button-simple:hover {
@@ -102,13 +104,16 @@
 .calendly-style {
   max-width: 600px;
   margin: 0 auto;
+  margin-top: 150px; /* Move container 150px lower */
 }
 
 .time-view-header {
-  text-align: center;
+  text-align: left; /* Align left for arrow placement */
   margin-bottom: 2rem;
   padding-bottom: 1.5rem;
   border-bottom: 1px solid rgba(242, 237, 230, 0.1);
+  position: relative;
+  padding-top: 70px; /* Move content 70px lower for arrow space */
 }
 
 .time-view-day {
@@ -120,8 +125,9 @@
 }
 
 .time-view-date {
-  font-size: 1rem;
+  font-size: 1.35rem; /* Made bigger from 1rem to 1.35rem */
   color: var(--base-250);
+  font-weight: 300; /* Lighter font weight */
   margin-bottom: 0.5rem;
   text-transform: capitalize;
 }

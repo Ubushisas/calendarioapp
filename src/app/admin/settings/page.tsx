@@ -17,7 +17,7 @@ export default function SettingsPage() {
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  const [settings, setSettings] = useState(null)
+  const [settings, setSettings] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -175,13 +175,13 @@ export default function SettingsPage() {
               <div className="flex-1">
                 <h2 className="text-lg font-semibold text-gray-900">Estado del Sistema</h2>
                 <p className="text-sm text-gray-500 mt-1">
-                  {settings.calendarEnabled ? '✅ Calendario activo' : '🔴 Calendario desactivado'}
+                  {settings?.calendarEnabled ? '✅ Calendario activo' : '🔴 Calendario desactivado'}
                 </p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={settings.calendarEnabled}
+                  checked={settings?.calendarEnabled}
                   onChange={(e) => updateSetting('calendarEnabled', e.target.checked)}
                   className="sr-only peer"
                 />
@@ -209,7 +209,7 @@ export default function SettingsPage() {
                   <div className="flex items-center gap-4">
                     <input
                       type="range"
-                      value={settings.bufferTime}
+                      value={settings?.bufferTime}
                       onChange={(e) => updateSetting('bufferTime', parseInt(e.target.value))}
                       min="0"
                       max="60"
@@ -217,7 +217,7 @@ export default function SettingsPage() {
                       className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
                     />
                     <span className="text-xl font-bold text-black min-w-[70px]">
-                      {settings.bufferTime} min
+                      {settings?.bufferTime} min
                     </span>
                   </div>
                   <p className="text-xs text-gray-500 mt-2">Tiempo de preparación entre cada cita</p>
@@ -231,7 +231,7 @@ export default function SettingsPage() {
                   <div className="flex items-center gap-4">
                     <input
                       type="range"
-                      value={settings.minimumAdvanceBookingHours}
+                      value={settings?.minimumAdvanceBookingHours}
                       onChange={(e) => updateSetting('minimumAdvanceBookingHours', parseInt(e.target.value))}
                       min="1"
                       max="72"
@@ -239,7 +239,7 @@ export default function SettingsPage() {
                       className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
                     />
                     <span className="text-xl font-bold text-black min-w-[70px]">
-                      {settings.minimumAdvanceBookingHours} hrs
+                      {settings?.minimumAdvanceBookingHours} hrs
                     </span>
                   </div>
                   <p className="text-xs text-gray-500 mt-2">Tiempo mínimo requerido entre ahora y la hora de la cita</p>
@@ -259,7 +259,7 @@ export default function SettingsPage() {
             </button>
             {expandedSections.rooms && (
               <div className="px-6 pb-6 space-y-3 border-t border-gray-100 pt-6">
-                {Object.entries(settings.rooms).map(([key, room]: [string, any]) => (
+                {Object.entries(settings?.rooms).map(([key, room]: [string, any]) => (
                   <div key={key} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                     <div className="flex-1">
                       <h3 className="font-medium text-gray-900">{room.name}</h3>
@@ -293,7 +293,7 @@ export default function SettingsPage() {
             </button>
             {expandedSections.hours && (
               <div className="px-6 pb-6 space-y-3 border-t border-gray-100 pt-6">
-                {Object.entries(settings.workingHours).map(([day, hours]: [string, any]) => (
+                {Object.entries(settings?.workingHours).map(([day, hours]: [string, any]) => (
                   <div key={day} className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-3 bg-gray-50 rounded-lg">
                     <div className="flex items-center gap-3 w-full sm:w-auto">
                       <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
@@ -342,7 +342,7 @@ export default function SettingsPage() {
             {expandedSections.services && (
               <div className="px-6 pb-6 space-y-3 border-t border-gray-100 pt-6">
                 <p className="text-sm text-gray-500 mb-4">Activa o desactiva servicios por categoría</p>
-                {settings.services && Object.entries(settings.services).map(([category, services]: [string, any]) => (
+                {settings?.services && Object.entries(settings?.services).map(([category, services]: [string, any]) => (
                   <div key={category} className="border border-gray-200 rounded-lg overflow-hidden">
                     <div className="bg-gray-50 px-4 py-3 flex items-center justify-between">
                       <h3 className="font-medium text-gray-900 capitalize">{category}</h3>
