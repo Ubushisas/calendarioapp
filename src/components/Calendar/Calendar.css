@@ -17,6 +17,7 @@
   border: 1px solid rgba(242, 237, 230, 0.1);
   border-radius: 1rem;
   padding: 3rem;
+  margin-top: 200px; /* Move calendar container WAY LOWER - 200px! */
 }
 
 .calendar-single-view {
@@ -114,10 +115,11 @@
   border-bottom: 1px solid rgba(242, 237, 230, 0.1);
   position: relative;
   padding-top: 70px; /* Move content 70px lower for arrow space */
+  margin-top: -30px; /* Move service info container 30px UP */
 }
 
 .time-view-day {
-  font-size: 1.75rem;
+  font-size: 2.25rem;
   font-weight: 700;
   color: var(--base-100);
   margin-bottom: 0.5rem;
@@ -125,7 +127,7 @@
 }
 
 .time-view-date {
-  font-size: 1.35rem; /* Made bigger from 1rem to 1.35rem */
+  font-size: 1.75rem; /* Made bigger from 1.35rem to 1.75rem */
   color: var(--base-250);
   font-weight: 300; /* Lighter font weight */
   margin-bottom: 0.5rem;
@@ -133,7 +135,7 @@
 }
 
 .time-view-duration {
-  font-size: 0.9rem;
+  font-size: 1.15rem;
   color: var(--base-300);
   font-family: "DM Mono", monospace;
 }
@@ -187,7 +189,7 @@
   border: 2px solid rgba(242, 237, 230, 0.15);
   border-radius: 0.5rem;
   color: var(--base-100);
-  font-size: 0.95rem;
+  font-size: 1.15rem;
   font-family: "DM Mono", monospace;
   font-weight: 600;
   cursor: pointer;
@@ -302,7 +304,7 @@
   background-color: rgba(242, 237, 230, 0.02);
   border-radius: 0.5rem;
   color: var(--base-100);
-  font-size: 0.95rem;
+  font-size: 1.15rem;
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
