@@ -15,12 +15,12 @@ export async function POST(request) {
     // Twilio credentials from environment
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
-    const twilioFrom = process.env.TWILIO_WHATSAPP_FROM || 'whatsapp:+14155238886';
+    const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
 
-    if (!accountSid || !authToken) {
+    if (!accountSid || !authToken || !messagingServiceSid) {
       console.error('Twilio credentials not configured');
       return NextResponse.json(
-        { error: 'WhatsApp service not configured' },
+        { error: 'SMS service not configured' },
         { status: 500 }
       );
     }
@@ -35,12 +35,12 @@ export async function POST(request) {
       formattedPhone = '+' + formattedPhone;
     }
 
-    // Send SMS only (no WhatsApp - user will send WhatsApp manually)
+    // Send SMS using Messaging Service (better deliverability)
     const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
     const twilioAuth = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
     const messageType = 'sms';
 
-    // Send SMS via Twilio
+    // Send SMS via Twilio Messaging Service
     const response = await fetch(twilioUrl, {
       method: 'POST',
       headers: {
@@ -48,7 +48,7 @@ export async function POST(request) {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({
-        From: twilioFrom.replace('whatsapp:', ''), // Remove whatsapp: prefix for SMS
+        MessagingServiceSid: messagingServiceSid,
         To: formattedPhone,
         Body: message,
       }),
