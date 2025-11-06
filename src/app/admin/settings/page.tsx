@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useSession, signOut } from 'next-auth/react'
-import { Save, ChevronDown, ChevronUp, LogOut, User, Eye, EyeOff } from 'lucide-react'
+import { Save, ChevronDown, ChevronUp, LogOut, User } from 'lucide-react'
 
 export default function SettingsPage() {
   const { data: session } = useSession()
@@ -21,8 +21,6 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-  const [showPreview, setShowPreview] = useState(false)
-  const [iframeKey, setIframeKey] = useState(0)
 
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     rooms: false,
@@ -60,7 +58,6 @@ export default function SettingsPage() {
 
       if (response.ok) {
         setSaved(true)
-        setIframeKey(prev => prev + 1)
         setTimeout(() => setSaved(false), 3000)
       }
     } catch (error) {
@@ -114,7 +111,7 @@ export default function SettingsPage() {
     <div className="min-h-screen bg-gray-50">
       {/* Success Banner */}
       {saved && (
-        <div className="fixed top-0 left-0 right-0 z-50 bg-green-600 text-white px-4 py-3 shadow-lg">
+        <div className="fixed top-0 left-0 right-0 z-50 bg-green-600/80 text-white px-4 py-3 shadow-lg">
           <div className="max-w-5xl mx-auto flex items-center justify-center gap-2">
             <span className="text-lg">✅</span>
             <span className="font-medium">Configuración guardada exitosamente</span>
@@ -137,15 +134,6 @@ export default function SettingsPage() {
                   <span className="text-sm text-gray-700">{session.user.name}</span>
                 </div>
               )}
-              {!isMobile && (
-                <button
-                  onClick={() => setShowPreview(!showPreview)}
-                  className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
-                >
-                  {showPreview ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  {showPreview ? 'Ocultar' : 'Ver'} Preview
-                </button>
-              )}
               <button
                 onClick={handleSave}
                 disabled={saving}
@@ -167,7 +155,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <div className={`max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 grid gap-6 ${showPreview && !isMobile ? 'grid-cols-2' : 'grid-cols-1'}`}>
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 grid gap-6 grid-cols-1">
         <div className="space-y-3">
           {/* Calendar Status - Always Visible */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -381,29 +369,6 @@ export default function SettingsPage() {
             )}
           </div>
         </div>
-
-        {/* Preview Panel */}
-        {showPreview && !isMobile && (
-          <div className="sticky top-24 h-fit">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">Vista Previa</h2>
-                <button
-                  onClick={() => setIframeKey(prev => prev + 1)}
-                  className="text-sm px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg transition"
-                >
-                  🔄 Recargar
-                </button>
-              </div>
-              <iframe
-                key={iframeKey}
-                src="http://localhost:3002"
-                className="w-full h-[800px] border-2 border-gray-300 rounded-lg"
-                title="Calendar Preview"
-              />
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )

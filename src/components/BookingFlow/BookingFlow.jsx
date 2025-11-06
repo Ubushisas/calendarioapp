@@ -5,7 +5,29 @@ import Copy from "@/components/Copy/Copy";
 import AnimatedButton from "@/components/AnimatedButton/AnimatedButton";
 import Calendar from "@/components/Calendar/Calendar";
 
-// Services will be loaded from settings
+// Hardcoded services
+const SERVICES = {
+  individual: [
+    { id: 1, name: "Limpieza Facial", duration: 60, price: 120000, enabled: true, minPeople: 0 },
+    { id: 2, name: "Masaje con Aceite Caliente", duration: 90, price: 140000, enabled: true, minPeople: 0 },
+    { id: 3, name: "Exfoliacion Corporal", duration: 75, price: 130000, enabled: true, minPeople: 0 },
+  ],
+  parejas: [
+    { id: 4, name: "Masaje en Pareja", duration: 90, price: 280000, enabled: true, minPeople: 2 },
+    { id: 5, name: "Spa Romantico Completo", duration: 120, price: 350000, enabled: true, minPeople: 2 },
+  ],
+  amigas: [
+    { id: 6, name: "Spa Day para Amigas", duration: 180, price: 450000, enabled: true, minPeople: 3 },
+    { id: 7, name: "Fiesta del Spa", duration: 240, price: 600000, enabled: true, minPeople: 4 },
+  ],
+  familia: [
+    { id: 8, name: "Dia Familiar de Bienestar", duration: 150, price: 500000, enabled: true, minPeople: 4 },
+  ],
+  eventos: [
+    { id: 9, name: "Despedida de Soltera", duration: 300, price: 800000, enabled: true, minPeople: 5 },
+    { id: 10, name: "Cumpleanos Especial", duration: 240, price: 700000, enabled: true, minPeople: 6 },
+  ],
+};
 
 const BookingFlow = () => {
   const [step, setStep] = useState(1);
@@ -40,14 +62,19 @@ const BookingFlow = () => {
 
   const handleServiceSelect = (svc) => {
     setService(svc);
-    // Always go to calendar first
-    setStep(3);
+    // If service requires multiple people, go to people selection first
+    // Otherwise go directly to calendar
+    if (svc.minPeople) {
+      setStep(4); // Go to people selection
+    } else {
+      setStep(3); // Go directly to calendar
+    }
   };
 
   const handlePeopleSelect = (num) => {
     setNumPeople(num);
     setGuestNames([]); // No need to collect guest names
-    setStep(4.5); // Go to contact info
+    setStep(3); // Go to calendar
   };
 
   const handleGuestNameChange = (index, value) => {
@@ -118,37 +145,31 @@ const BookingFlow = () => {
         throw new Error(data.error || 'Error al crear la reserva');
       }
 
-      // Send WhatsApp confirmation
-      try {
-        await fetch('/api/whatsapp/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            phoneNumber: customerInfo.phone,
-            type: 'confirmation',
-            bookingDetails: {
-              customerName: customerInfo.name,
-              serviceName: service.name,
-              date: selectedDateTime.date.toLocaleDateString('es-CO', {
-                weekday: 'long',
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric'
-              }),
-              time: selectedDateTime.time,
-              numberOfPeople: service.minPeople ? numPeople : 1,
-              guestNames: guestNames.filter(n => n),
-              deposit: service.price * 0.5,
-            },
-          }),
-        });
-        console.log('✅ WhatsApp confirmation sent');
-      } catch (whatsappError) {
-        console.error('⚠️ WhatsApp notification failed:', whatsappError);
-        // Don't fail the booking if WhatsApp fails
-      }
+      // Booking created successfully, now redirect to WhatsApp
+      const formattedDate = selectedDateTime.date.toLocaleDateString('es-CO', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      });
 
-      setBookingStatus('success');
+      const depositAmount = formatPrice(service.price * 0.5);
+
+      const whatsappMessage = `Hola! Acabo de hacer una reserva en Miosotys Spa:\n\n` +
+        `Servicio: ${service.name}\n` +
+        `Fecha: ${formattedDate}\n` +
+        `Hora: ${selectedDateTime.time}\n` +
+        `Nombre: ${customerInfo.name}\n` +
+        `Telefono: ${customerInfo.phone}\n` +
+        `Email: ${customerInfo.email}\n\n` +
+        `Deposito requerido: ${depositAmount} (50%)\n\n` +
+        `Por favor confirma mi reserva y enviame los detalles de pago. Gracias!`;
+
+      const spaWhatsAppNumber = '573337224223';
+      const whatsappUrl = `https://wa.me/${spaWhatsAppNumber}?text=${encodeURIComponent(whatsappMessage)}`;
+
+      // Redirect to WhatsApp (opens in same tab so user sends the message)
+      window.location.href = whatsappUrl;
     } catch (error) {
       console.error('Booking error:', error);
       setBookingStatus('error');
@@ -226,7 +247,7 @@ const BookingFlow = () => {
       )}
 
       {/* Step 2: Service Selection */}
-      {step === 2 && category && settings?.services && (
+      {step === 2 && category && SERVICES[category] && (
         <div className="booking-step">
           <Copy delay={0.1}>
             <p className="mono">Paso 2 de 4</p>
@@ -236,7 +257,7 @@ const BookingFlow = () => {
           </Copy>
 
           <div className="service-selection">
-            {settings.services[category]?.filter(svc => svc.enabled).map((svc, idx) => (
+            {SERVICES[category]?.filter(svc => svc.enabled).map((svc, idx) => (
               <button
                 key={svc.id}
                 className="service-option"
@@ -279,7 +300,7 @@ const BookingFlow = () => {
 
           {selectedDateTime && (
             <div className="confirmation-actions">
-              <div onClick={() => setStep(service.minPeople ? 4 : 4.5)}>
+              <div onClick={() => setStep(4.5)}>
                 <AnimatedButton
                   label="Continuar"
                   animate={false}
@@ -480,127 +501,94 @@ const BookingFlow = () => {
       {/* Step 5: Final Confirmation */}
       {step === 5 && service && selectedDateTime && (
         <div className="booking-step">
-          {bookingStatus === 'success' ? (
-            <div className="confirmation-message">
-              <Copy delay={0.1}>
-                <p className="mono">Reserva confirmada</p>
-              </Copy>
-              <Copy delay={0.2}>
-                <h3>¡Tu reserva ha sido confirmada!</h3>
-              </Copy>
-              <Copy delay={0.3}>
-                <p>
-                  Hemos enviado un correo de confirmación a <strong>{customerInfo.email}</strong> con
-                  todos los detalles de tu reserva.
-                </p>
-                <p>
-                  Recibirás un recordatorio 24 horas antes de tu cita.
-                </p>
-              </Copy>
-              <div className="confirmation-note">
-                <p>¡Nos vemos pronto en Miosotys Spa!</p>
-              </div>
-              <div className="confirmation-actions">
-                <div onClick={() => window.location.href = '/'}>
-                  <AnimatedButton
-                    label="Volver al inicio"
-                    animate={false}
-                  />
-                </div>
-              </div>
-            </div>
-          ) : (
-            <>
-              <Copy delay={0.1}>
-                <p className="mono">Confirmación final</p>
-              </Copy>
-              {service && (
-                <p className="service-name-indicator">{service.name}</p>
-              )}
-              <Copy delay={0.2}>
-                <h2>Revisa tu reserva</h2>
-              </Copy>
-
-              <div className="booking-summary">
-                <h3>Resumen de tu reserva</h3>
-                <div className="summary-item">
-                  <span>Servicio:</span>
-                  <span>{service.name}</span>
-                </div>
-                <div className="summary-item">
-                  <span>Fecha:</span>
-                  <span>
-                    {selectedDateTime.date.toLocaleDateString('es-CO', {
-                      weekday: 'long',
-                      day: 'numeric',
-                      month: 'long',
-                      year: 'numeric'
-                    })}
-                  </span>
-                </div>
-                <div className="summary-item">
-                  <span>Hora:</span>
-                  <span>{selectedDateTime.time}</span>
-                </div>
-                <div className="summary-item">
-                  <span>Duración:</span>
-                  <span>{service.duration} minutos</span>
-                </div>
-                {service.minPeople && (
-                  <>
-                    <div className="summary-item">
-                      <span>Personas:</span>
-                      <span>{numPeople}</span>
-                    </div>
-                    {guestNames.length > 0 && (
-                      <div className="summary-item">
-                        <span>Nombres:</span>
-                        <span>{guestNames.filter((n) => n).join(", ")}</span>
-                      </div>
-                    )}
-                  </>
-                )}
-                <div className="summary-item">
-                  <span>Nombre:</span>
-                  <span>{customerInfo.name}</span>
-                </div>
-                <div className="summary-item">
-                  <span>Teléfono:</span>
-                  <span>{customerInfo.phone}</span>
-                </div>
-                <div className="summary-item">
-                  <span>Email:</span>
-                  <span>{customerInfo.email}</span>
-                </div>
-                <div className="summary-item total">
-                  <span>Total:</span>
-                  <span>{formatPrice(service.price)}</span>
-                </div>
-                <div className="summary-item deposit">
-                  <span>Depósito requerido (50%):</span>
-                  <span>{formatPrice(service.price * 0.5)}</span>
-                </div>
-              </div>
-
-              {bookingStatus === 'error' && (
-                <div className="error-message" style={{ textAlign: 'center', marginTop: '1rem', fontSize: '1rem' }}>
-                  Error: {bookingError}
-                </div>
-              )}
-
-              <div className="step-actions">
-                <button className="back-button" onClick={() => setStep(4.5)}>
-                  ← Volver
-                </button>
-                <div onClick={handleConfirmBooking}>
-                  <AnimatedButton
-                    label={bookingStatus === 'loading' ? 'Procesando...' : 'Confirmar reserva'}
-                    animate={false}
-                  />
-                </div>
-              </div>
-            </>
+          <Copy delay={0.1}>
+            <p className="mono">Confirmación final</p>
+          </Copy>
+          {service && (
+            <p className="service-name-indicator">{service.name}</p>
           )}
+          <Copy delay={0.2}>
+            <h2>Revisa tu reserva</h2>
+          </Copy>
+
+          <div className="booking-summary">
+            <h3>Resumen de tu reserva</h3>
+            <div className="summary-item">
+              <span>Servicio:</span>
+              <span>{service.name}</span>
+            </div>
+            <div className="summary-item">
+              <span>Fecha:</span>
+              <span>
+                {selectedDateTime.date.toLocaleDateString('es-CO', {
+                  weekday: 'long',
+                  day: 'numeric',
+                  month: 'long',
+                  year: 'numeric'
+                })}
+              </span>
+            </div>
+            <div className="summary-item">
+              <span>Hora:</span>
+              <span>{selectedDateTime.time}</span>
+            </div>
+            <div className="summary-item">
+              <span>Duración:</span>
+              <span>{service.duration} minutos</span>
+            </div>
+            {service.minPeople && (
+              <>
+                <div className="summary-item">
+                  <span>Personas:</span>
+                  <span>{numPeople}</span>
+                </div>
+                {guestNames.length > 0 && (
+                  <div className="summary-item">
+                    <span>Nombres:</span>
+                    <span>{guestNames.filter((n) => n).join(", ")}</span>
+                  </div>
+                )}
+              </>
+            )}
+            <div className="summary-item">
+              <span>Nombre:</span>
+              <span>{customerInfo.name}</span>
+            </div>
+            <div className="summary-item">
+              <span>Teléfono:</span>
+              <span>{customerInfo.phone}</span>
+            </div>
+            <div className="summary-item">
+              <span>Email:</span>
+              <span>{customerInfo.email}</span>
+            </div>
+            <div className="summary-item total">
+              <span>Total:</span>
+              <span>{formatPrice(service.price)}</span>
+            </div>
+            <div className="summary-item deposit">
+              <span>Depósito requerido (50%):</span>
+              <span>{formatPrice(service.price * 0.5)}</span>
+            </div>
+          </div>
+
+          {bookingStatus === 'error' && (
+            <div className="error-message" style={{ textAlign: 'center', marginTop: '1rem', fontSize: '1rem' }}>
+              Error: {bookingError}
+            </div>
+          )}
+
+          <div className="step-actions">
+            <button className="back-button" onClick={() => setStep(4.5)}>
+              ← Volver
+            </button>
+            <div onClick={handleConfirmBooking}>
+              <AnimatedButton
+                label={bookingStatus === 'loading' ? 'Procesando...' : 'Confirmar reserva'}
+                animate={false}
+              />
+            </div>
+          </div>
         </div>
       )}
     </div>

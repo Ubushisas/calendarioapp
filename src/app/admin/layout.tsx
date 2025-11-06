@@ -1,9 +1,10 @@
 'use client'
 
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
+import { SessionProvider, useSession, signOut } from 'next-auth/react'
 import {
   IconLayoutDashboard,
   IconUsers,
@@ -14,21 +15,34 @@ import {
   IconSparkles,
   IconCalendarEvent,
   IconMessageCircle,
+  IconLogout,
 } from '@tabler/icons-react'
 
-export default function AdminLayout({
+function AdminLayoutContent({
   children,
 }: {
   children: React.ReactNode
 }) {
   const pathname = usePathname()
+  const router = useRouter()
   const [mounted, setMounted] = useState(false)
+  const { data: session, status } = useSession()
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (mounted && status === 'unauthenticated') {
+      router.push('/auth/signin')
+    }
+  }, [mounted, status, router])
+
   const navItems = [
+    { href: '/admin', icon: IconLayoutDashboard, label: 'Dashboard' },
+    { href: '/admin/whatsapp-reminders', icon: IconMessageCircle, label: 'Recordatorios de WhatsApp' },
+    { href: '/admin/patients', icon: IconUsers, label: 'Gestión de Pacientes' },
     { href: '/admin/settings', icon: IconSettings, label: 'Configuración' },
   ]
 
@@ -39,15 +53,28 @@ export default function AdminLayout({
     return 'bg-primary text-primary-foreground border-l-4 border-foreground'
   }
 
-  if (!mounted) {
+  // Show loading while checking auth
+  if (!mounted || status === 'loading') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Verificando acceso...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Don't render if not authenticated (will redirect)
+  if (status === 'unauthenticated') {
     return null
   }
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="flex h-screen overflow-hidden">
-        {/* Sidebar */}
-        <motion.aside
+        <div className="flex h-screen overflow-hidden">
+          {/* Sidebar */}
+          <motion.aside
           initial={{ x: -300, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           transition={{ duration: 0.5, ease: 'easeOut' }}
@@ -78,7 +105,9 @@ export default function AdminLayout({
             <AnimatePresence>
               {navItems.map((item, index) => {
                 const Icon = item.icon
-                const isActive = pathname === item.href
+                const isActive = item.href === '/admin'
+                  ? pathname === '/admin'
+                  : pathname.startsWith(item.href)
 
                 return (
                   <motion.div
@@ -100,12 +129,36 @@ export default function AdminLayout({
             </AnimatePresence>
           </nav>
 
-          {/* Footer */}
+          {/* Footer - User Profile */}
           <div className="p-4 border-t border-border">
-            <div className="bg-muted rounded-lg p-3">
-              <p className="text-xs text-muted-foreground font-medium">Sistema Activo</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Todas las funciones disponibles</p>
-            </div>
+            {session?.user && (
+              <>
+                <div className="flex items-center gap-3 mb-3">
+                  {session.user.image && (
+                    <img
+                      src={session.user.image}
+                      alt={session.user.name || 'User'}
+                      className="w-10 h-10 rounded-full border-2 border-primary"
+                    />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-foreground text-sm truncate">
+                      {session.user.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {session.user.email}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => signOut({ callbackUrl: '/auth/signin' })}
+                  className="w-full px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                >
+                  <IconLogout className="w-4 h-4" />
+                  <span>Cerrar Sesión</span>
+                </button>
+              </>
+            )}
           </div>
         </motion.aside>
 
@@ -122,7 +175,19 @@ export default function AdminLayout({
             </div>
           </motion.div>
         </main>
+        </div>
       </div>
-    </div>
+  )
+}
+
+export default function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <SessionProvider>
+      <AdminLayoutContent>{children}</AdminLayoutContent>
+    </SessionProvider>
   )
 }
