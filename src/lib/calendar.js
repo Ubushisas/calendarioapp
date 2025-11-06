@@ -1,15 +1,10 @@
 import { google } from 'googleapis';
-import fs from 'fs';
-import path from 'path';
 
 // Using the main Myosotis Spa calendar for all bookings
 const CALENDAR_IDS = {
   individual: 'myosotisbymo@gmail.com', // Main Myosotis Spa calendar
   principal: 'myosotisbymo@gmail.com', // Main Myosotis Spa calendar
 };
-
-// Path to store OAuth tokens
-const TOKEN_PATH = path.join(process.cwd(), 'google-oauth-token.json');
 
 // Initialize OAuth2 client
 function getOAuth2Client() {
@@ -20,16 +15,24 @@ function getOAuth2Client() {
   );
 }
 
-// Get authenticated calendar client using stored token
+// Get authenticated calendar client using token from environment variable
 function getCalendarClient() {
   const oauth2Client = getOAuth2Client();
 
-  // Load token from file
-  if (fs.existsSync(TOKEN_PATH)) {
-    const token = JSON.parse(fs.readFileSync(TOKEN_PATH, 'utf-8'));
-    oauth2Client.setCredentials(token);
+  // Load token from environment variable instead of file system
+  // This makes it work on Vercel serverless
+  const tokenJson = process.env.GOOGLE_OAUTH_TOKEN;
+
+  if (tokenJson) {
+    try {
+      const token = JSON.parse(tokenJson);
+      oauth2Client.setCredentials(token);
+    } catch (error) {
+      console.error('Error parsing GOOGLE_OAUTH_TOKEN:', error);
+      throw new Error('Invalid OAuth token format. Please check GOOGLE_OAUTH_TOKEN environment variable.');
+    }
   } else {
-    throw new Error('OAuth token not found. Please authorize the application first.');
+    throw new Error('OAuth token not found. Please set GOOGLE_OAUTH_TOKEN environment variable.');
   }
 
   return google.calendar({ version: 'v3', auth: oauth2Client });
@@ -51,22 +54,24 @@ export function getAuthUrl() {
   return authUrl;
 }
 
-// Exchange authorization code for tokens and save them
+// Exchange authorization code for tokens
+// NOTE: In production, manually set the GOOGLE_OAUTH_TOKEN environment variable
 export async function saveTokenFromCode(code) {
   const oauth2Client = getOAuth2Client();
 
   const { tokens } = await oauth2Client.getToken(code);
   oauth2Client.setCredentials(tokens);
 
-  // Save tokens to file
-  fs.writeFileSync(TOKEN_PATH, JSON.stringify(tokens));
+  // Return tokens as JSON string to be manually added to environment variables
+  console.log('IMPORTANT: Add this to your .env.local and Vercel environment variables:');
+  console.log('GOOGLE_OAUTH_TOKEN=' + JSON.stringify(tokens));
 
   return tokens;
 }
 
 // Check if token exists and is valid
 export function isAuthorized() {
-  return fs.existsSync(TOKEN_PATH);
+  return !!process.env.GOOGLE_OAUTH_TOKEN;
 }
 
 // Determine which calendar to use based on service type
@@ -123,10 +128,8 @@ export async function getUnavailableSlots(date, service) {
       orderBy: 'startTime',
     });
 
-    // Load buffer time from settings
-    const settingsPath = path.join(process.cwd(), 'calendar-settings.json');
-    const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-    const bufferTime = settings.bufferTime || 0; // in minutes
+    // Load buffer time from environment variable or use default
+    const bufferTime = parseInt(process.env.CALENDAR_BUFFER_TIME || '15'); // in minutes
 
     // Extract booked time ranges and add buffer time
     const bookedSlots = response.data.items.map(event => {

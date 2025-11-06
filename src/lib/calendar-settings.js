@@ -1,9 +1,4 @@
-import fs from 'fs';
-import path from 'path';
-
-const SETTINGS_FILE = path.join(process.cwd(), 'calendar-settings.json');
-
-// Default settings
+// Default settings - used when no environment variable is set
 const DEFAULT_SETTINGS = {
   calendarEnabled: true,
   rooms: {
@@ -32,25 +27,30 @@ const DEFAULT_SETTINGS = {
   minimumAdvanceBookingHours: 12, // Minimum hours in advance required to book
 };
 
-// Initialize settings file if it doesn't exist
-export function initializeSettings() {
-  if (!fs.existsSync(SETTINGS_FILE)) {
-    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(DEFAULT_SETTINGS, null, 2));
-  }
-}
-
-// Get current settings
+// Get current settings from environment variable or use defaults
+// This works on Vercel serverless without file system
 export function getSettings() {
-  initializeSettings();
-  const data = fs.readFileSync(SETTINGS_FILE, 'utf-8');
-  return JSON.parse(data);
+  const settingsJson = process.env.CALENDAR_SETTINGS;
+
+  if (settingsJson) {
+    try {
+      return JSON.parse(settingsJson);
+    } catch (error) {
+      console.error('Error parsing CALENDAR_SETTINGS:', error);
+      return DEFAULT_SETTINGS;
+    }
+  }
+
+  return DEFAULT_SETTINGS;
 }
 
-// Update settings
+// Update settings - NOTE: On Vercel, you need to manually update the environment variable
 export function updateSettings(newSettings) {
+  console.warn('Settings updates require manual environment variable changes on Vercel');
   const current = getSettings();
   const updated = { ...current, ...newSettings };
-  fs.writeFileSync(SETTINGS_FILE, JSON.stringify(updated, null, 2));
+  console.log('New settings JSON for CALENDAR_SETTINGS environment variable:');
+  console.log(JSON.stringify(updated));
   return updated;
 }
 

@@ -536,18 +536,18 @@ const BookingFlow = () => {
               <span>Duración:</span>
               <span>{service.duration} minutos</span>
             </div>
-            {service.minPeople && (
+            {service.minPeople > 0 && (
               <>
                 <div className="summary-item">
                   <span>Personas:</span>
                   <span>{numPeople}</span>
                 </div>
-                {guestNames.length > 0 && (
+                {guestNames.length > 0 ? (
                   <div className="summary-item">
                     <span>Nombres:</span>
                     <span>{guestNames.filter((n) => n).join(", ")}</span>
                   </div>
-                )}
+                ) : null}
               </>
             )}
             <div className="summary-item">
