@@ -35,63 +35,24 @@ export async function POST(request) {
       formattedPhone = '+' + formattedPhone;
     }
 
-    // Send via Twilio - Try WhatsApp first, fallback to SMS
+    // Send SMS only (no WhatsApp - user will send WhatsApp manually)
     const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
     const twilioAuth = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
+    const messageType = 'sms';
 
-    // Try WhatsApp first
-    let response;
-    let messageType = 'whatsapp';
-
-    try {
-      response = await fetch(twilioUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Basic ${twilioAuth}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          From: twilioFrom,
-          To: `whatsapp:${formattedPhone}`,
-          Body: message,
-        }),
-      });
-
-      if (!response.ok) {
-        // WhatsApp failed, try SMS
-        console.log('WhatsApp failed, trying SMS...');
-        messageType = 'sms';
-
-        response = await fetch(twilioUrl, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Basic ${twilioAuth}`,
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: new URLSearchParams({
-            From: twilioFrom.replace('whatsapp:', ''), // Remove whatsapp: prefix for SMS
-            To: formattedPhone,
-            Body: message,
-          }),
-        });
-      }
-    } catch (error) {
-      console.error('Error sending WhatsApp, trying SMS:', error);
-      messageType = 'sms';
-
-      response = await fetch(twilioUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Basic ${twilioAuth}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          From: twilioFrom.replace('whatsapp:', ''),
-          To: formattedPhone,
-          Body: message,
-        }),
-      });
-    }
+    // Send SMS via Twilio
+    const response = await fetch(twilioUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${twilioAuth}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        From: twilioFrom.replace('whatsapp:', ''), // Remove whatsapp: prefix for SMS
+        To: formattedPhone,
+        Body: message,
+      }),
+    });
 
     const data = await response.json();
 
