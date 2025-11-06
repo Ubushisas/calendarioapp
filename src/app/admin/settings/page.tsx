@@ -247,7 +247,7 @@ export default function SettingsPage() {
             </button>
             {expandedSections.rooms && (
               <div className="px-6 pb-6 space-y-3 border-t border-gray-100 pt-6">
-                {Object.entries(settings?.rooms).map(([key, room]: [string, any]) => (
+                {settings?.rooms && Object.entries(settings.rooms).map(([key, room]: [string, any]) => (
                   <div key={key} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                     <div className="flex-1">
                       <h3 className="font-medium text-gray-900">{room.name}</h3>
@@ -281,7 +281,7 @@ export default function SettingsPage() {
             </button>
             {expandedSections.hours && (
               <div className="px-6 pb-6 space-y-3 border-t border-gray-100 pt-6">
-                {Object.entries(settings?.workingHours).map(([day, hours]: [string, any]) => (
+                {settings?.workingHours && Object.entries(settings.workingHours).map(([day, hours]: [string, any]) => (
                   <div key={day} className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-3 bg-gray-50 rounded-lg">
                     <div className="flex items-center gap-3 w-full sm:w-auto">
                       <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
@@ -330,7 +330,7 @@ export default function SettingsPage() {
             {expandedSections.services && (
               <div className="px-6 pb-6 space-y-3 border-t border-gray-100 pt-6">
                 <p className="text-sm text-gray-500 mb-4">Activa o desactiva servicios por categoría</p>
-                {settings?.services && Object.entries(settings?.services).map(([category, services]: [string, any]) => (
+                {settings?.services && Object.entries(settings.services).map(([category, services]: [string, any]) => (
                   <div key={category} className="border border-gray-200 rounded-lg overflow-hidden">
                     <div className="bg-gray-50 px-4 py-3 flex items-center justify-between">
                       <h3 className="font-medium text-gray-900 capitalize">{category}</h3>

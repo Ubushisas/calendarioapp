@@ -193,6 +193,14 @@ const Calendar = ({ service, onSelectDateTime }) => {
       return false;
     }
 
+    // Check minimum advance booking hours
+    if (settings && settings.minimumAdvanceBookingHours) {
+      const hoursUntilBooking = (slotStart - now) / (1000 * 60 * 60);
+      if (hoursUntilBooking < settings.minimumAdvanceBookingHours) {
+        return false;
+      }
+    }
+
     const slotEnd = new Date(slotStart.getTime() + service.duration * 60000);
 
     // Check if this slot overlaps with any unavailable slot
