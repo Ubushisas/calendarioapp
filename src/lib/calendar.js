@@ -1,9 +1,9 @@
 import { google } from 'googleapis';
 
-// Using the main Myosotis Spa calendar for all bookings
+// Using room-specific calendars for bookings
 const CALENDAR_IDS = {
-  individual: 'myosotisbymo@gmail.com', // Main Myosotis Spa calendar
-  principal: 'myosotisbymo@gmail.com', // Main Myosotis Spa calendar
+  individual: '5f7b7d0630cdbfe75c87101e63c334ccc2a875971b4c26d4a39003210b5bf393@group.calendar.google.com', // Sala Individual
+  principal: '44b404aad9e13f877c9af362787bf2a0212fbcad1a073bfa3439392167bd0c5f@group.calendar.google.com', // Sala Principal
 };
 
 // Initialize OAuth2 client
