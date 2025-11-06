@@ -60,15 +60,19 @@ export async function POST(request) {
       console.error('Twilio API error:', data);
 
       // Save failed message to sheet
-      await saveMessageToSheet({
-        phoneNumber: formattedPhone,
-        direction: 'outbound-api',
-        body: message,
-        status: 'failed',
-        messageType: messageType,
-        twilioSid: data.sid || '',
-        errorMessage: data.message || 'Unknown error',
-      });
+      try {
+        await saveMessageToSheet({
+          phoneNumber: formattedPhone,
+          direction: 'outbound-api',
+          body: message,
+          status: 'failed',
+          messageType: messageType,
+          twilioSid: data.sid || '',
+          errorMessage: data.message || 'Unknown error',
+        });
+      } catch (sheetError) {
+        console.error('Error saving to sheet (non-critical):', sheetError.message);
+      }
 
       return NextResponse.json(
         { error: data.message || 'Failed to send message' },
@@ -77,15 +81,19 @@ export async function POST(request) {
     }
 
     // Save successful message to sheet
-    await saveMessageToSheet({
-      phoneNumber: formattedPhone,
-      direction: 'outbound-api',
-      body: message,
-      status: data.status,
-      messageType: messageType,
-      twilioSid: data.sid,
-      errorMessage: '',
-    });
+    try {
+      await saveMessageToSheet({
+        phoneNumber: formattedPhone,
+        direction: 'outbound-api',
+        body: message,
+        status: data.status,
+        messageType: messageType,
+        twilioSid: data.sid,
+        errorMessage: '',
+      });
+    } catch (sheetError) {
+      console.error('Error saving to sheet (non-critical):', sheetError.message);
+    }
 
     return NextResponse.json({
       success: true,
