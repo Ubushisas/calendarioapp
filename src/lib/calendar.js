@@ -1,5 +1,8 @@
 import { google } from 'googleapis';
 
+// Master calendar receives ALL bookings
+const MASTER_CALENDAR_ID = 'myosotisbymo@gmail.com';
+
 // Using room-specific calendars for bookings
 const CALENDAR_IDS = {
   individual: '44b404aad9e13f877c9af362787bf2a0212fbcad1a073bfa3439392167bd0c5f@group.calendar.google.com', // Sala Individual
@@ -191,11 +194,24 @@ export async function createBooking(date, time, service, guestNames, customerInf
       },
     };
 
+    // Create event on room-specific calendar
     const response = await calendar.events.insert({
       calendarId,
       resource: event,
       sendUpdates: 'all', // Send email to attendees
     });
+
+    // Also create on master calendar (myosotisbymo@gmail.com) for complete overview
+    try {
+      await calendar.events.insert({
+        calendarId: MASTER_CALENDAR_ID,
+        resource: event,
+        sendUpdates: 'none', // Don't send duplicate emails
+      });
+    } catch (masterError) {
+      console.error('Warning: Failed to sync to master calendar:', masterError);
+      // Don't fail the booking if master calendar sync fails
+    }
 
     return response.data;
   } catch (error) {
