@@ -1,8 +1,5 @@
 import { google } from 'googleapis';
 
-// Master calendar that receives ALL bookings
-const MASTER_CALENDAR_ID = 'myosotisbymo@gmail.com';
-
 // Using room-specific calendars for bookings
 const CALENDAR_IDS = {
   individual: '44b404aad9e13f877c9af362787bf2a0212fbcad1a073bfa3439392167bd0c5f@group.calendar.google.com', // Sala Individual
@@ -159,13 +156,10 @@ export async function getUnavailableSlots(date, service) {
 export async function createBooking(date, time, service, guestNames, customerInfo) {
   try {
     const calendar = getCalendarClient();
-    const roomCalendarId = getCalendarId(service);
+    const calendarId = getCalendarId(service);
 
     const startDateTime = convertToISODateTime(date, time);
     const endDateTime = new Date(new Date(startDateTime).getTime() + service.duration * 60000).toISOString();
-
-    // Determine room name for description
-    const roomName = service.minPeople ? 'Sala Principal (Grupal)' : 'Sala Individual';
 
     // Format service details
     const durationText = `Duración: ${service.duration} minutos`;
@@ -178,7 +172,7 @@ export async function createBooking(date, time, service, guestNames, customerInf
 
     const event = {
       summary: `${service.name}`,
-      description: `✨ RESERVA DE ${service.name.toUpperCase()} ✨\n\n📋 Detalles del Servicio:\n${durationText}\n${priceText}${peopleText}${guestsText}\n\n🏨 Sala: ${roomName}\n\n👤 Información de Contacto:\nNombre: ${customerInfo.name}\nTeléfono: ${customerInfo.phone}\nEmail: ${customerInfo.email}\n\n🏨 Miosotys Spa - Colombia`,
+      description: `✨ RESERVA DE ${service.name.toUpperCase()} ✨\n\n📋 Detalles del Servicio:\n${durationText}\n${priceText}${peopleText}${guestsText}\n\n👤 Información de Contacto:\nNombre: ${customerInfo.name}\nTeléfono: ${customerInfo.phone}\nEmail: ${customerInfo.email}\n\n🏨 Miosotys Spa - Colombia`,
       start: {
         dateTime: startDateTime,
         timeZone: 'America/Bogota',
@@ -197,28 +191,13 @@ export async function createBooking(date, time, service, guestNames, customerInf
       },
     };
 
-    // Create event on room-specific calendar
-    const roomResponse = await calendar.events.insert({
-      calendarId: roomCalendarId,
+    const response = await calendar.events.insert({
+      calendarId,
       resource: event,
       sendUpdates: 'all', // Send email to attendees
     });
 
-    // Create the same event on master calendar (myosotisbymo@gmail.com)
-    // This ensures all bookings appear on the main calendar
-    try {
-      await calendar.events.insert({
-        calendarId: MASTER_CALENDAR_ID,
-        resource: event,
-        sendUpdates: 'none', // Don't send duplicate emails
-      });
-      console.log(`Booking also added to master calendar: ${MASTER_CALENDAR_ID}`);
-    } catch (masterError) {
-      console.error('Warning: Failed to add booking to master calendar:', masterError);
-      // Don't fail the whole booking if master calendar fails
-    }
-
-    return roomResponse.data;
+    return response.data;
   } catch (error) {
     console.error('Error creating booking:', error);
     throw error;
